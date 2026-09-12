@@ -7,26 +7,32 @@ if (typeof process.loadEnvFile === 'function' && existsSync('.env')) {
 }
 
 const PORT = process.env.PORT || 8081;
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
+const TOKENHARBOR_API_KEY = process.env.TOKENHARBOR_API_KEY || '';
 
-if (!OPENROUTER_API_KEY) {
-  console.error('[Router] ERROR: OPENROUTER_API_KEY is not set.');
-  console.error('[Router] Please copy .env.example to .env and configure your key.');
+if (!OPENROUTER_API_KEY && !TOKENHARBOR_API_KEY) {
+  console.error('[Router] ERROR: Neither OPENROUTER_API_KEY nor TOKENHARBOR_API_KEY is set.');
+  console.error('[Router] Please configure at least one in .env or your environment variables.');
   process.exit(1);
 }
 
-// Configured free model priority sequence.
-// OpenRouter enforces a maximum of 3 models per request, so the router
-// automatically chunks them into batches and falls over sequentially.
-const FALLBACK_MODELS = [
-  "minimax/minimax-m3:free",
-  "nvidia/nemotron-3-ultra-550b-a55b:free",
-  "nvidia/nemotron-3.5-lightning:free",
-  "thinkingmachines/inkling:free",
-  "thinkingmachines/inkling-small:free"
+// TokenHarbor free models sequence
+const TOKENHARBOR_FREE_MODELS = [
+  'deepseek-v4.1-flash:free',
+  'deepseek-v4-flash:free',
+  'mimo-v2.5:free'
 ];
 
-// Helper: Split array into chunks of up to 3 items
+// OpenRouter free models sequence
+const OPENROUTER_FALLBACK_MODELS = [
+  'minimax/minimax-m3:free',
+  'nvidia/nemotron-3-ultra-550b-a55b:free',
+  'nvidia/nemotron-3.5-lightning:free',
+  'thinkingmachines/inkling:free',
+  'thinkingmachines/inkling-small:free'
+];
+
+// Split array into chunks of up to 3 items (OpenRouter maximum)
 function chunkArray(array, size = 3) {
   const chunks = [];
   for (let i = 0; i < array.length; i += size) {
@@ -35,77 +41,223 @@ function chunkArray(array, size = 3) {
   return chunks;
 }
 
+// Catalog of models exposed to clients
+const MODEL_CATALOG = [
+  { id: 'free-router', name: '? Auto Free (TokenHarbor -> OpenRouter)', owned_by: 'unified-proxy', provider: 'Unified' },
+  { id: 'deepseek-v4.1-flash:free', name: 'TokenHarbor: DeepSeek V4.1 Flash Free (1M Context)', owned_by: 'tokenharbor', provider: 'TokenHarbor' },
+  { id: 'deepseek-v4-flash:free', name: 'TokenHarbor: DeepSeek V4 Flash Free', owned_by: 'tokenharbor', provider: 'TokenHarbor' },
+  { id: 'mimo-v2.5:free', name: 'TokenHarbor: MiMo V2.5 Free', owned_by: 'tokenharbor', provider: 'TokenHarbor' },
+  { id: 'minimax/minimax-m3:free', name: 'OpenRouter: MiniMax M3 Free (1M Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', name: 'OpenRouter: Nemotron 3 Ultra 550B Free', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'nvidia/nemotron-3.5-lightning:free', name: 'OpenRouter: Nemotron 3.5 Lightning Free', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'thinkingmachines/inkling:free', name: 'OpenRouter: Inkling Free', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'thinkingmachines/inkling-small:free', name: 'OpenRouter: Inkling Small Free', owned_by: 'openrouter', provider: 'OpenRouter' }
+];
+
+async function callTokenHarbor(model, payload) {
+  const body = { ...payload, model };
+  delete body.models;
+
+  return await fetch('https://tokenharbor.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${TOKENHARBOR_API_KEY}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'Unified-AI-Proxy/1.0'
+    },
+    body: JSON.stringify(body)
+  });
+}
+
+async function callOpenRouter(models, payload) {
+  const body = { ...payload };
+  delete body.model;
+  body.models = Array.isArray(models) ? models : [models];
+
+  return await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://github.com/cline/cline',
+      'X-Title': 'Unified Free Model Proxy'
+    },
+    body: JSON.stringify(body)
+  });
+}
+
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   if (req.method === 'OPTIONS') return res.writeHead(204).end();
 
-  // Cline model discovery endpoint
+  // Health check endpoint
+  if (req.url === '/health' || req.url === '/v1/health') {
+    return res.writeHead(200, { 'Content-Type': 'application/json' })
+              .end(JSON.stringify({
+                status: 'ok',
+                port: Number(PORT),
+                providers: {
+                  tokenharbor: Boolean(TOKENHARBOR_API_KEY),
+                  openrouter: Boolean(OPENROUTER_API_KEY)
+                },
+                models_count: MODEL_CATALOG.length
+              }));
+  }
+
+  // Model discovery endpoint
   if (req.url.startsWith('/v1/models') || req.url.startsWith('/models')) {
     return res.writeHead(200, { 'Content-Type': 'application/json' })
-              .end(JSON.stringify({ data: [{ id: "free-router" }] }));
+              .end(JSON.stringify({ object: 'list', data: MODEL_CATALOG }));
   }
 
   // Chat completions endpoint
   if (req.method === 'POST' && req.url.includes('/chat/completions')) {
-    let body = '';
-    req.on('data', chunk => body += chunk);
+    let rawBody = '';
+    req.on('data', chunk => rawBody += chunk);
     req.on('end', async () => {
       try {
-        const payload = JSON.parse(body);
-        delete payload.model;
+        const payload = JSON.parse(rawBody);
+        const requestedModel = (payload.model || '').trim();
 
-        const modelBatches = chunkArray(FALLBACK_MODELS, 3);
-        let lastErrorText = "No available models in fallback chain";
-        let lastStatus = 500;
+        // -------------------------------------------------------------
+        // Strategy 1: Targeted TokenHarbor Model
+        // -------------------------------------------------------------
+        const isExplicitTokenHarbor = TOKENHARBOR_FREE_MODELS.includes(requestedModel) ||
+                                     requestedModel.startsWith('deepseek-') ||
+                                     requestedModel.startsWith('mimo-');
 
-        // Iterate through batches in exact priority order
-        for (let i = 0; i < modelBatches.length; i++) {
-          const currentBatch = modelBatches[i];
-          payload.models = currentBatch;
-
-          console.log(`[Router] Attempting batch ${i + 1}/${modelBatches.length}: [${currentBatch.join(', ')}]`);
-
+        if (isExplicitTokenHarbor && TOKENHARBOR_API_KEY) {
+          console.log(`[Proxy] Routing directly to TokenHarbor: ${requestedModel}`);
           try {
-            const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://github.com/cline/cline",
-                "X-Title": "Cline Free Router"
-              },
-              body: JSON.stringify(payload)
-            });
+            const thRes = await callTokenHarbor(requestedModel, payload);
+            if (thRes.ok) {
+              console.log(`[Proxy] TokenHarbor (${requestedModel}) succeeded (${thRes.status}). Streaming response.`);
+              res.writeHead(thRes.status, Object.fromEntries(thRes.headers.entries()));
+              return thRes.body.pipeTo(new WritableStream({
+                write(chunk) { res.write(chunk); },
+                close() { res.end(); }
+              }));
+            }
+            const errText = await thRes.text();
+            console.warn(`[Proxy] TokenHarbor (${requestedModel}) error (${thRes.status}): ${errText.slice(0, 150)}`);
+            // If explicit model failed and was rate-limited, attempt fallback to next TokenHarbor free model
+            if ((thRes.status === 429 || thRes.status >= 500) && requestedModel !== 'deepseek-v4-flash:free') {
+              console.log(`[Proxy] Retrying TokenHarbor fallback with deepseek-v4-flash:free...`);
+              const fbRes = await callTokenHarbor('deepseek-v4-flash:free', payload);
+              if (fbRes.ok) {
+                res.writeHead(fbRes.status, Object.fromEntries(fbRes.headers.entries()));
+                return fbRes.body.pipeTo(new WritableStream({
+                  write(chunk) { res.write(chunk); },
+                  close() { res.end(); }
+                }));
+              }
+            }
+            res.writeHead(thRes.status, { 'Content-Type': 'application/json' }).end(errText);
+            return;
+          } catch (e) {
+            console.error(`[Proxy] TokenHarbor network error: ${e.message}`);
+            res.writeHead(502, { 'Content-Type': 'application/json' })
+               .end(JSON.stringify({ error: { message: `TokenHarbor error: ${e.message}` } }));
+            return;
+          }
+        }
 
-            // If OpenRouter responded successfully (200 OK), pipe stream to Cline
+        // -------------------------------------------------------------
+        // Strategy 2: Targeted OpenRouter Model (contains vendor '/' or matches list)
+        // -------------------------------------------------------------
+        const isExplicitOpenRouter = requestedModel.includes('/') ||
+                                    OPENROUTER_FALLBACK_MODELS.includes(requestedModel);
+
+        if (isExplicitOpenRouter && OPENROUTER_API_KEY) {
+          console.log(`[Proxy] Routing directly to OpenRouter: ${requestedModel}`);
+          try {
+            const orRes = await callOpenRouter([requestedModel], payload);
             if (orRes.ok) {
-              console.log(`[Router] Batch ${i + 1} succeeded (${orRes.status}). Streaming to client.`);
+              console.log(`[Proxy] OpenRouter (${requestedModel}) succeeded (${orRes.status}). Streaming response.`);
               res.writeHead(orRes.status, Object.fromEntries(orRes.headers.entries()));
               return orRes.body.pipeTo(new WritableStream({
                 write(chunk) { res.write(chunk); },
                 close() { res.end(); }
               }));
             }
-
-            // If OpenRouter returned an error (e.g. 429, 503 Overloaded, 400), capture and retry next batch
-            lastStatus = orRes.status;
-            lastErrorText = await orRes.text();
-            console.warn(`[Router] Batch ${i + 1} failed (${lastStatus}): ${lastErrorText.slice(0, 150)}...`);
-          } catch (fetchErr) {
-            console.warn(`[Router] Batch ${i + 1} network exception: ${fetchErr.message}`);
-            lastErrorText = fetchErr.message;
+            const errText = await orRes.text();
+            console.warn(`[Proxy] OpenRouter (${requestedModel}) error (${orRes.status}): ${errText.slice(0, 150)}`);
+            res.writeHead(orRes.status, { 'Content-Type': 'application/json' }).end(errText);
+            return;
+          } catch (e) {
+            console.error(`[Proxy] OpenRouter network error: ${e.message}`);
+            res.writeHead(502, { 'Content-Type': 'application/json' })
+               .end(JSON.stringify({ error: { message: `OpenRouter error: ${e.message}` } }));
+            return;
           }
         }
 
-        // If all batches failed, report to Cline
-        console.error(`[Router] All ${modelBatches.length} batches exhausted.`);
+        // -------------------------------------------------------------
+        // Strategy 3: Virtual 'free-router' / Auto Cascade (Default)
+        // -------------------------------------------------------------
+        console.log(`[Proxy] Initiating unified cascade for model '${requestedModel || 'free-router'}'`);
+        let lastErrorText = 'All fallback providers exhausted';
+        let lastStatus = 503;
+
+        // Phase 1: Try TokenHarbor Free Models (if key present)
+        if (TOKENHARBOR_API_KEY) {
+          for (const thModel of TOKENHARBOR_FREE_MODELS) {
+            console.log(`[Proxy] [Cascade 1/2] Attempting TokenHarbor: ${thModel}`);
+            try {
+              const thRes = await callTokenHarbor(thModel, payload);
+              if (thRes.ok) {
+                console.log(`[Proxy] [Cascade 1/2] TokenHarbor (${thModel}) SUCCEEDED (200).`);
+                res.writeHead(thRes.status, Object.fromEntries(thRes.headers.entries()));
+                return thRes.body.pipeTo(new WritableStream({
+                  write(chunk) { res.write(chunk); },
+                  close() { res.end(); }
+                }));
+              }
+              lastStatus = thRes.status;
+              lastErrorText = await thRes.text();
+              console.warn(`[Proxy] TokenHarbor (${thModel}) returned ${lastStatus}: ${lastErrorText.slice(0, 120)}`);
+            } catch (netErr) {
+              console.warn(`[Proxy] TokenHarbor (${thModel}) connection failed: ${netErr.message}`);
+              lastErrorText = netErr.message;
+            }
+          }
+        }
+
+        // Phase 2: Cascade to OpenRouter Free Batches (if key present)
+        if (OPENROUTER_API_KEY) {
+          const modelBatches = chunkArray(OPENROUTER_FALLBACK_MODELS, 3);
+          for (let i = 0; i < modelBatches.length; i++) {
+            const currentBatch = modelBatches[i];
+            console.log(`[Proxy] [Cascade 2/2] Attempting OpenRouter Batch ${i + 1}/${modelBatches.length}: [${currentBatch.join(', ')}]`);
+            try {
+              const orRes = await callOpenRouter(currentBatch, payload);
+              if (orRes.ok) {
+                console.log(`[Proxy] [Cascade 2/2] OpenRouter Batch ${i + 1} SUCCEEDED (200).`);
+                res.writeHead(orRes.status, Object.fromEntries(orRes.headers.entries()));
+                return orRes.body.pipeTo(new WritableStream({
+                  write(chunk) { res.write(chunk); },
+                  close() { res.end(); }
+                }));
+              }
+              lastStatus = orRes.status;
+              lastErrorText = await orRes.text();
+              console.warn(`[Proxy] OpenRouter Batch ${i + 1} returned ${lastStatus}: ${lastErrorText.slice(0, 120)}`);
+            } catch (netErr) {
+              console.warn(`[Proxy] OpenRouter Batch ${i + 1} connection failed: ${netErr.message}`);
+              lastErrorText = netErr.message;
+            }
+          }
+        }
+
+        // Exhausted all models
+        console.error(`[Proxy] All cascade providers failed.`);
         res.writeHead(lastStatus, { 'Content-Type': 'application/json' })
            .end(JSON.stringify({ error: { message: lastErrorText } }));
 
       } catch (err) {
-        console.error(`[Router] Request parsing error: ${err.message}`);
+        console.error(`[Proxy] Request parsing exception: ${err.message}`);
         res.writeHead(500, { 'Content-Type': 'application/json' })
            .end(JSON.stringify({ error: { message: err.message } }));
       }
@@ -116,4 +268,11 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(404).end();
 });
 
-server.listen(PORT, () => console.log(`Cline Router active on http://localhost:${PORT}/v1 (max 3 models per OpenRouter request with auto-retry)`));
+server.listen(PORT, () => {
+  console.log(`================================================================`);
+  console.log(`?? Unified Free AI Proxy active at http://localhost:${PORT}/v1`);
+  console.log(`   - TokenHarbor: ${TOKENHARBOR_API_KEY ? 'CONNECTED (DeepSeek V4.1 Flash Free ready)' : 'DISABLED'}`);
+  console.log(`   - OpenRouter:  ${OPENROUTER_API_KEY ? 'CONNECTED (5 models chunked in batches of 3)' : 'DISABLED'}`);
+  console.log(`   - Master Virtual Model: 'free-router' (Auto-Cascade)`);
+  console.log(`================================================================`);
+});
