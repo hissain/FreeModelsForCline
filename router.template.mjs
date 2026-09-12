@@ -1,8 +1,19 @@
-﻿import http from 'node:http';
+import http from 'node:http';
+import { existsSync } from 'node:fs';
 
-const PORT = 8080;
-// Pass via environment variable or replace the placeholder below
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "YOUR_OPENROUTER_API_KEY_HERE";
+// Automatically load .env if available
+if (typeof process.loadEnvFile === 'function' && existsSync('.env')) {
+  process.loadEnvFile('.env');
+}
+
+const PORT = process.env.PORT || 8081;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+
+if (!OPENROUTER_API_KEY) {
+  console.error('[Router] ERROR: OPENROUTER_API_KEY is not set.');
+  console.error('[Router] Please copy .env.example to .env and configure your key.');
+  process.exit(1);
+}
 
 // Configured free model priority sequence.
 // OpenRouter enforces a maximum of 3 models per request, so the router

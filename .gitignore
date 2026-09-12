@@ -1,7 +1,8 @@
-﻿# Private configuration with secrets/keys
+# Private configuration with secrets/keys
 router.mjs
 .env
 .env.*
+!.env.example
 *.local
 
 # Node
@@ -13,3 +14,6 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+*.log
+proxy.log

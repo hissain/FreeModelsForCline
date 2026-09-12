@@ -1,4 +1,4 @@
-﻿# OpenRouter Free Model Proxy for Cline
+# OpenRouter Free Model Proxy for Cline
 
 A lightweight, zero-dependency Node.js proxy server that routes OpenAI-compatible requests from **Cline** (or any AI coding assistant) to **OpenRouter's free-tier models** with automatic failover and multi-batch recovery.
 
@@ -35,37 +35,35 @@ The proxy evaluates models in your exact order:
 - **Node.js** v18+ (uses built-in `fetch` and `node:http`, no `npm install` needed).
 
 ### 2. Setup Configuration
-Copy the template file to `router.mjs`:
+Copy `.env.example` to `.env` and add your OpenRouter API key:
 
 ```bash
 # In Git Bash / Linux / macOS:
+cp .env.example .env
 cp router.template.mjs router.mjs
 
 # In PowerShell:
+Copy-Item .env.example .env
 Copy-Item router.template.mjs router.mjs
 ```
 
-> [!NOTE]
-> `router.mjs` is ignored by `.gitignore` so your private API key will never be committed to Git.
-
-### 3. Run the Proxy
-Pass your API key as an environment variable or edit `router.mjs` directly:
-
-```powershell
-# In PowerShell:
-$env:OPENROUTER_API_KEY = "sk-or-v1-your-key-here"
-node router.mjs
+Edit `.env` and paste your key:
+```env
+OPENROUTER_API_KEY=sk-or-v1-your-key-here
+PORT=8081
 ```
 
-```bash
-# In Git Bash / Linux / macOS:
-export OPENROUTER_API_KEY="sk-or-v1-your-key-here"
+> [!NOTE]
+> Both `.env`, `router.mjs`, and `*.log` are ignored by `.gitignore` so your private credentials and logs are never committed.
+
+### 3. Run the Proxy
+```powershell
 node router.mjs
 ```
 
 The server will start listening at:
 ```text
-http://localhost:8080/v1
+http://localhost:8081/v1
 ```
 
 ---
@@ -77,7 +75,7 @@ Open your **Cline Settings** in VS Code and configure:
 | Setting | Value |
 | :--- | :--- |
 | **API Provider** | `OpenAI Compatible` |
-| **Base URL** | `http://localhost:8080/v1` |
+| **Base URL** | `http://localhost:8081/v1` |
 | **API Key** | `dummy` *(the proxy attaches your real OpenRouter key)* |
 | **Model ID** | `free-router` |
 
@@ -87,7 +85,7 @@ Open your **Cline Settings** in VS Code and configure:
 
 ### Test Health & Model Discovery
 ```bash
-curl http://localhost:8080/v1/models
+curl http://localhost:8081/v1/models
 ```
 *Expected response:*
 ```json
@@ -96,7 +94,7 @@ curl http://localhost:8080/v1/models
 
 ### Test Chat Completions Directly
 ```bash
-curl -X POST http://localhost:8080/v1/chat/completions \
+curl -X POST http://localhost:8081/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"free-router","messages":[{"role":"user","content":"Say hello in 3 words"}]}'
 ```
@@ -105,3 +103,17 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 
 ## Customizing Models
 Edit the `FALLBACK_MODELS` array inside `router.mjs` to add, remove, or change priority order. The proxy will automatically chunk them into batches of 3 and handle failover sequentially. Check active free models anytime on [openrouter.ai/models?max_price=0](https://openrouter.ai/models?max_price=0).
+
+---
+
+## Windows Background Management (Survives Reboots)
+
+To run the proxy permanently in the background without keeping a terminal open:
+
+- **Start in Background**: Double-click `start-proxy.cmd`
+- **Check Status & Health**: Double-click `status-proxy.cmd`
+- **Stop Proxy**: Double-click `stop-proxy.cmd`
+- **Auto-Start on Windows Login**: Double-click `install-autostart.cmd` (registers in Windows Startup)
+- **Disable Auto-Start**: Double-click `uninstall-autostart.cmd`
+
+Logs are automatically written to `proxy.log` (ignored by git).
