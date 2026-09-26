@@ -25,6 +25,7 @@ const TOKENHARBOR_FREE_MODELS = [
 
 // OpenRouter free models sequence
 const OPENROUTER_FALLBACK_MODELS = [
+  'qwen/qwen3.8-27b:free',
   'minimax/minimax-m3:free',
   'nvidia/nemotron-3-ultra-550b-a55b:free',
   'nvidia/nemotron-3.5-lightning:free',
