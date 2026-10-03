@@ -26,31 +26,30 @@ When using free models on OpenRouter with autonomous coding agents (Cline, Claud
 
 ---
 
-## Configured Priority Sequences (Long Context & Capability First)
+## Configured Priority Sequences (Tiered by Context & Capability)
 
-The proxy strictly prioritizes **1,000,000 (1M) token context** and massive parameter models first, followed by high-context fallbacks:
+The proxy strictly prioritizes **1,000,000 (1M) token context** and heavyweight parameter models first, followed by specialized coding models and dynamic safety fallbacks:
 
 ### Anthropic Messages API (`/v1/messages` for Claude CLI)
-
-1. `nvidia/nemotron-3-ultra-550b-a55b:free` *(Priority 1: **1,000,000 (1M) context**, massive 550B parameter coding foundation model)*
-
-2. `nvidia/nemotron-3.5-lightning:free` *(Priority 2: **1,000,000 (1M) context**, fast low-latency reasoning)*
-
-3. `dots-studio/dots-3-note-preview:free` *(Priority 3: **512,000 (512k) context**)*
-
-4. `qwen/qwen3.8-27b:free` *(Priority 4: **262,144 (262k) context**, elite coding reasoning)*
-
-5. `openrouter/free` *(Priority 5: Dynamic auto-router safety net fallback)*
+- **Tier 1: 1M (1,000,000) Context Tier**
+  1. `nvidia/nemotron-3-ultra-550b-a55b:free` *(Priority 1: **1,000,000 context**, massive 550B parameter coding foundation model)*
+  2. `nvidia/nemotron-3.5-lightning:free` *(Priority 2: **1,000,000 context**, fast low-latency reasoning)*
+- **Tier 2: 512k (512,000) Context Tier**
+  3. `dots-studio/dots-3-note-preview:free` *(Priority 3: **512,000 context**, verified native tool calling)*
+- **Tier 3: 262k (262,144) Context Tier (Heavyweight & Code Specialists)**
+  4. `nvidia/nemotron-3-super-120b-a12b:free` *(Priority 4: **120B parameter** heavy coding model)*
+  5. `poolside/laguna-s-2.1:free` *(Priority 5: Poolside dedicated software-engineering model)*
+  6. `qwen/qwen3.8-27b:free` *(Priority 6: Elite reasoning & instruction following)*
+  7. `inclusionai/ling-3.0-flash-sante:free` *(Priority 7: High-throughput fallback)*
+- **Tier 4: Dynamic Safety Net**
+  8. `openrouter/free` *(Priority 8: Dynamic auto-router fallback)*
 
 ### OpenAI Chat Completions API (`/v1/chat/completions` for Cline)
-
 - **TokenHarbor Free Models (Optional)**: `deepseek-v4.1-flash:free` (1M context), `deepseek-v4-flash:free`, `mimo-v2.5:free`
-
 - **OpenRouter Free Batches (1M -> 512k -> 262k)**:
-
   - **Batch 1 (1M & 512k Context Tier)**: `nvidia/nemotron-3-ultra-550b-a55b:free`, `nvidia/nemotron-3.5-lightning:free`, `dots-studio/dots-3-note-preview:free`
-
-  - **Batch 2 (262k Context Tier)**: `qwen/qwen3.8-27b:free`, `google/gemma-4-31b-it:free`, `google/gemma-4-26b-a4b-it:free`
+  - **Batch 2 (Heavyweight & Specialists)**: `nvidia/nemotron-3-super-120b-a12b:free`, `poolside/laguna-s-2.1:free`, `qwen/qwen3.8-27b:free`
+  - **Batch 3 (General Fallbacks)**: `inclusionai/ling-3.0-flash-sante:free`, `google/gemma-4-31b-it:free`, `google/gemma-4-26b-a4b-it:free`
 
 ---
 

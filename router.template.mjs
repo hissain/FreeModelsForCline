@@ -2,8 +2,6 @@ import http from 'node:http';
 
 import { existsSync } from 'node:fs';
 
-
-
 // Automatically load .env if available
 
 if (typeof process.loadEnvFile === 'function' && existsSync('.env')) {
@@ -12,15 +10,11 @@ if (typeof process.loadEnvFile === 'function' && existsSync('.env')) {
 
 }
 
-
-
 const PORT = process.env.PORT || 8081;
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 
 const TOKENHARBOR_API_KEY = process.env.TOKENHARBOR_API_KEY || '';
-
-
 
 if (!OPENROUTER_API_KEY && !TOKENHARBOR_API_KEY) {
 
@@ -31,8 +25,6 @@ if (!OPENROUTER_API_KEY && !TOKENHARBOR_API_KEY) {
   process.exit(1);
 
 }
-
-
 
 // TokenHarbor free models sequence
 
@@ -46,30 +38,44 @@ const TOKENHARBOR_FREE_MODELS = [
 
 ];
 
-
-
 // OpenRouter free models sequence
 
-// OpenRouter free models sequence (OpenAI format for Cline) - Prioritized by 1M+ context & capability
+// OpenRouter free models sequence (OpenAI format for Cline) - Prioritized by context & capability
 const OPENROUTER_FALLBACK_MODELS = [
-  'nvidia/nemotron-3-ultra-550b-a55b:free', // 1M context, 550B params
-  'nvidia/nemotron-3.5-lightning:free',    // 1M context
+  // Tier 1: 1,000,000 (1M) Context
+  'nvidia/nemotron-3-ultra-550b-a55b:free', // 1M context, 550B params (Primary)
+  'nvidia/nemotron-3.5-lightning:free',    // 1M context, fast reasoning
+
+  // Tier 2: 512,000 (512k) Context
   'dots-studio/dots-3-note-preview:free',  // 512k context
-  'qwen/qwen3.8-27b:free',                  // 262k context, elite coder
-  'google/gemma-4-31b-it:free',            // 262k context
-  'google/gemma-4-26b-a4b-it:free'         // 262k context
+
+  // Tier 3: 262,144 (262k) Context - Heavyweight & Coding Specialists
+  'nvidia/nemotron-3-super-120b-a12b:free', // 120B parameter heavy coder
+  'poolside/laguna-s-2.1:free',            // Poolside specialized coding model
+  'qwen/qwen3.8-27b:free',                  // Qwen reasoning & syntax
+  'inclusionai/ling-3.0-flash-sante:free',  // High-throughput fallback
+  'google/gemma-4-31b-it:free',            // Google instruction-tuned
+  'google/gemma-4-26b-a4b-it:free'         // Google instruction-tuned
 ];
 
-// OpenRouter free models sequence (Anthropic format for Claude CLI) - Prioritized by 1M+ context & capability
+// OpenRouter free models sequence (Anthropic format for Claude CLI) - Prioritized by context & capability
 const ANTHROPIC_FALLBACK_MODELS = [
+  // Tier 1: 1,000,000 (1M) Context
   'nvidia/nemotron-3-ultra-550b-a55b:free', // 1M context, 550B params (Primary)
-  'nvidia/nemotron-3.5-lightning:free',    // 1M context (Secondary)
+  'nvidia/nemotron-3.5-lightning:free',    // 1M context, fast reasoning
+
+  // Tier 2: 512,000 (512k) Context
   'dots-studio/dots-3-note-preview:free',  // 512k context
-  'qwen/qwen3.8-27b:free',                  // 262k context, elite coder
+
+  // Tier 3: 262,144 (262k) Context - Heavyweight & Coding Specialists
+  'nvidia/nemotron-3-super-120b-a12b:free', // 120B parameter heavy coder
+  'poolside/laguna-s-2.1:free',            // Poolside specialized coding model
+  'qwen/qwen3.8-27b:free',                  // Qwen reasoning & syntax
+  'inclusionai/ling-3.0-flash-sante:free',  // High-throughput fallback
+
+  // Tier 4: Auto Safety Net
   'openrouter/free'                        // Dynamic auto-router fallback
 ];
-
-
 
 // Split array into chunks of up to 3 items (OpenRouter maximum)
 
@@ -87,31 +93,28 @@ function chunkArray(array, size = 3) {
 
 }
 
-
-
 // Catalog of models exposed to clients
 
 const MODEL_CATALOG = [
-  { id: 'free-router', name: 'Auto Free (TokenHarbor -> OpenRouter 1M Context)', owned_by: 'unified-proxy', provider: 'Unified' },
+  { id: 'free-router', name: 'Auto Free (1M Context First -> TokenHarbor -> OpenRouter)', owned_by: 'unified-proxy', provider: 'Unified' },
   { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', name: 'OpenRouter: Nemotron 3 Ultra 550B Free (1M Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
   { id: 'nvidia/nemotron-3.5-lightning:free', name: 'OpenRouter: Nemotron 3.5 Lightning Free (1M Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
   { id: 'dots-studio/dots-3-note-preview:free', name: 'OpenRouter: Dots3-Note Preview Free (512k Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'nvidia/nemotron-3-super-120b-a12b:free', name: 'OpenRouter: Nemotron 3 Super 120B Free (262k Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'poolside/laguna-s-2.1:free', name: 'OpenRouter: Poolside Laguna S 2.1 Free (262k Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
   { id: 'qwen/qwen3.8-27b:free', name: 'OpenRouter: Qwen 3.8 27B Free (262k Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'inclusionai/ling-3.0-flash-sante:free', name: 'OpenRouter: Ling 3.0 Flash Sante Free (262k Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
   { id: 'openrouter/free', name: 'OpenRouter: Auto Free Router', owned_by: 'openrouter', provider: 'OpenRouter' },
   { id: 'deepseek-v4.1-flash:free', name: 'TokenHarbor: DeepSeek V4.1 Flash Free (1M Context)', owned_by: 'tokenharbor', provider: 'TokenHarbor' },
   { id: 'deepseek-v4-flash:free', name: 'TokenHarbor: DeepSeek V4 Flash Free', owned_by: 'tokenharbor', provider: 'TokenHarbor' },
   { id: 'mimo-v2.5:free', name: 'TokenHarbor: MiMo V2.5 Free', owned_by: 'tokenharbor', provider: 'TokenHarbor' }
 ];
 
-
-
 async function callTokenHarbor(model, payload) {
 
   const body = { ...payload, model };
 
   delete body.models;
-
-
 
   return await fetch('https://tokenharbor.ai/v1/chat/completions', {
 
@@ -133,8 +136,6 @@ async function callTokenHarbor(model, payload) {
 
 }
 
-
-
 async function callOpenRouter(models, payload) {
 
   const body = { ...payload };
@@ -142,8 +143,6 @@ async function callOpenRouter(models, payload) {
   delete body.model;
 
   body.models = Array.isArray(models) ? models : [models];
-
-
 
   return await fetch('https://openrouter.ai/api/v1/chat/completions', {
 
@@ -167,8 +166,6 @@ async function callOpenRouter(models, payload) {
 
 }
 
-
-
 function pipeResponse(res, upstreamRes) {
 
   const headers = Object.fromEntries(upstreamRes.headers.entries());
@@ -191,15 +188,11 @@ function pipeResponse(res, upstreamRes) {
 
 }
 
-
-
 async function callOpenRouterMessages(model, payload, anthropicVersion = "2023-06-01") {
 
   const body = { ...payload, model };
 
   delete body.models;
-
-
 
   return await fetch("https://openrouter.ai/api/v1/messages", {
 
@@ -225,8 +218,6 @@ async function callOpenRouterMessages(model, payload, anthropicVersion = "2023-0
 
 }
 
-
-
 const server = http.createServer(async (req, res) => {
 
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -236,8 +227,6 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 
   if (req.method === 'OPTIONS') return res.writeHead(204).end();
-
-
 
   // Health check endpoint
 
@@ -265,8 +254,6 @@ const server = http.createServer(async (req, res) => {
 
   }
 
-
-
   // Model discovery endpoint
 
   if (req.url.startsWith('/v1/models') || req.url.startsWith('/models')) {
@@ -276,8 +263,6 @@ const server = http.createServer(async (req, res) => {
               .end(JSON.stringify({ object: 'list', data: MODEL_CATALOG }));
 
   }
-
-
 
   // -------------------------------------------------------------
 
@@ -301,8 +286,6 @@ const server = http.createServer(async (req, res) => {
 
         const anthropicVersion = req.headers["anthropic-version"] || "2023-06-01";
 
-
-
         // Direct explicit model
 
         const isExplicit = requestedModel &&
@@ -312,8 +295,6 @@ const server = http.createServer(async (req, res) => {
                            requestedModel !== "default" &&
 
                            !requestedModel.startsWith("claude-");
-
-
 
         if (isExplicit && OPENROUTER_API_KEY) {
 
@@ -339,8 +320,6 @@ const server = http.createServer(async (req, res) => {
 
         }
 
-
-
         // Cascade through active free models for Claude CLI
 
         console.log(`[Proxy-Messages] Cascading Anthropic Messages for '${requestedModel || "free-router"}'`);
@@ -348,8 +327,6 @@ const server = http.createServer(async (req, res) => {
         let lastErrorText = "All fallback providers exhausted";
 
         let lastStatus = 503;
-
-
 
         for (const candidateModel of ANTHROPIC_FALLBACK_MODELS) {
 
@@ -383,13 +360,9 @@ const server = http.createServer(async (req, res) => {
 
         }
 
-
-
         res.writeHead(lastStatus, { "Content-Type": "application/json" })
 
            .end(JSON.stringify({ type: "error", error: { type: "api_error", message: lastErrorText } }));
-
-
 
       } catch (err) {
 
@@ -406,8 +379,6 @@ const server = http.createServer(async (req, res) => {
     return;
 
   }
-
-
 
   // -------------------------------------------------------------
 
@@ -429,8 +400,6 @@ const server = http.createServer(async (req, res) => {
 
         const requestedModel = (payload.model || '').trim();
 
-
-
         // -------------------------------------------------------------
 
         // Strategy 1: Targeted TokenHarbor Model
@@ -442,8 +411,6 @@ const server = http.createServer(async (req, res) => {
                                      requestedModel.startsWith('deepseek-') ||
 
                                      requestedModel.startsWith('mimo-');
-
-
 
         if (isExplicitTokenHarbor && TOKENHARBOR_API_KEY) {
 
@@ -515,8 +482,6 @@ const server = http.createServer(async (req, res) => {
 
         }
 
-
-
         // -------------------------------------------------------------
 
         // Strategy 2: Targeted OpenRouter Model (contains vendor '/' or matches list)
@@ -526,8 +491,6 @@ const server = http.createServer(async (req, res) => {
         const isExplicitOpenRouter = requestedModel.includes('/') ||
 
                                     OPENROUTER_FALLBACK_MODELS.includes(requestedModel);
-
-
 
         if (isExplicitOpenRouter && OPENROUTER_API_KEY) {
 
@@ -575,8 +538,6 @@ const server = http.createServer(async (req, res) => {
 
         }
 
-
-
         // -------------------------------------------------------------
 
         // Strategy 3: Virtual 'free-router' / Auto Cascade (Default)
@@ -588,8 +549,6 @@ const server = http.createServer(async (req, res) => {
         let lastErrorText = 'All fallback providers exhausted';
 
         let lastStatus = 503;
-
-
 
         // Phase 1: Try TokenHarbor Free Models (if key present)
 
@@ -636,8 +595,6 @@ const server = http.createServer(async (req, res) => {
           }
 
         }
-
-
 
         // Phase 2: Cascade to OpenRouter Free Batches (if key present)
 
@@ -689,8 +646,6 @@ const server = http.createServer(async (req, res) => {
 
         }
 
-
-
         // Exhausted all models
 
         console.error(`[Proxy] All cascade providers failed.`);
@@ -698,8 +653,6 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(lastStatus, { 'Content-Type': 'application/json' })
 
            .end(JSON.stringify({ error: { message: lastErrorText } }));
-
-
 
       } catch (err) {
 
@@ -717,13 +670,9 @@ const server = http.createServer(async (req, res) => {
 
   }
 
-
-
   res.writeHead(404).end();
 
 });
-
-
 
 server.listen(PORT, () => {
 
