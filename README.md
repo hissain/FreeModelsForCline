@@ -97,13 +97,25 @@ Configure Claude Code to route requests through the local proxy. You can configu
     "ANTHROPIC_AUTH_TOKEN": "dummy",
     "ANTHROPIC_API_KEY": "",
     "ANTHROPIC_MODEL": "free-router"
-  }
+  },
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Glob(*)",
+      "Grep(*)"
+    ]
+  },
+  "allowDangerouslySkipPermissions": true
 }
 ```
 
 * **Why `ANTHROPIC_API_KEY: ""`?** Keeping this empty prevents Claude Code from attempting official Anthropic web/console login.
 * **Why `ANTHROPIC_AUTH_TOKEN: "dummy"`?** Satisfies Claude Code's internal authentication check; the local proxy injects your actual OpenRouter key upstream.
 * **Why `ANTHROPIC_MODEL: "free-router"`?** Instructs the proxy to automatically cascade through active free models.
+* **Why `permissions`?** Pre-authorizes core tools with wildcard patterns so Claude Code runs file reads, edits, and terminal commands autonomously without blocking on interactive "dialog waiting" permission prompts.
 
 **Test Claude CLI:**
 ```bash
