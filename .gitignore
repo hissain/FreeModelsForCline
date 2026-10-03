@@ -17,3 +17,5 @@ Thumbs.db
 
 *.log
 proxy.log
+
+*.bak
