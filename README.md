@@ -14,6 +14,8 @@ When using free models on OpenRouter with autonomous coding agents (Cline, Claud
 - **The Solution**: This proxy handles **both protocols simultaneously**:
   - Exposes an OpenAI-compatible endpoint at `/v1/chat/completions` with automated batch chunking (<= 3 models).
   - Exposes an Anthropic Messages endpoint at `/v1/messages` with native Server-Sent Events (SSE) streaming, header normalization, and sequential model cascading.
+  - **Strict Non-Streaming Envelope Validation**: Claude Code automatically retries failed streams using non-streaming requests (`stream: false`). The proxy validates that the response contains a genuine Anthropic Message envelope (`type === "message"`), automatically catching upstream errors disguised under HTTP 200 and cascading to the next fallback model.
+  - **Auto Mode Fast-Path**: Intercepts Claude Code's background safety classifier calls (`querySource: "auto_mode"`) to prevent wasting free rate limits on repetitive bash permission checks.
   - Automatically recovers and falls back across active free models before your agent sees an error.
 
 ---
@@ -63,10 +65,13 @@ Copy-Item .env.example .env
 Copy-Item router.template.mjs router.mjs
 ```
 
-Edit `.env` and paste your key:
+Edit `.env` and configure your settings:
 ```env
 OPENROUTER_API_KEY=sk-or-v1-your-key-here
 PORT=8081
+
+# Safety Classifier for Claude Code Auto Mode ('auto-approve', 'qwen/qwen3.8-27b:free', 'default')
+SAFETY_CLASSIFIER_MODEL=auto-approve
 ```
 
 > [!NOTE]
@@ -116,6 +121,25 @@ Configure Claude Code to route requests through the local proxy. You can configu
 * **Why `ANTHROPIC_AUTH_TOKEN: "dummy"`?** Satisfies Claude Code's internal authentication check; the local proxy injects your actual OpenRouter key upstream.
 * **Why `ANTHROPIC_MODEL: "free-router"`?** Instructs the proxy to automatically cascade through active free models.
 * **Why `permissions`?** Pre-authorizes core tools with wildcard patterns so Claude Code runs file reads, edits, and terminal commands autonomously without blocking on interactive "dialog waiting" permission prompts.
+
+#### Auto Mode & Safety Classifier Customization
+
+Claude Code includes an **Auto Mode** (`⏵⏵ auto mode on`) where each tool execution (such as `Bash(...)`) is pre-screened by a safety classifier model (`claude-sonnet-5`). When using free tier models, these extra classification prompts can quickly exhaust per-minute rate limits (`free-models-per-min`), resulting in errors like:
+```text
+Error: claude-sonnet-5 is temporarily unavailable, so auto mode cannot determine the safety of Bash right now.
+```
+
+You can customize or optimize the safety classifier in two ways:
+
+1. **Proxy-Level Optimization via `SAFETY_CLASSIFIER_MODEL` in `.env` (Recommended)**:
+   The proxy intercepts all requests tagged with `querySource: "auto_mode"` or targeting `claude-sonnet-5`:
+   - **`auto-approve`** *(Default)*: Instantly returns `<block>no</block>` in **<20ms** with **0 tokens** consumed. Commands execute immediately, saving 100% of classifier API calls and completely eliminating rate-limit halts while keeping Claude Code in Auto Mode.
+   - **`qwen/qwen3.8-27b:free`** *(or any model ID)*: Routes the safety classifier prompt to a dedicated, fast, lightweight model instead of the heavy 550B Nemotron model.
+   - **`default`**: Cascades through the standard tiered free models.
+
+2. **Client-Level Customization (Claude CLI)**:
+   - **`ANTHROPIC_DEFAULT_SONNET_MODEL`**: You can set this in `~/.claude/settings.json` under `"env"` to direct Claude Code to target a specific model name for the Sonnet/classifier tier.
+   - **Toggle Auto Mode (`Shift+Tab`)**: Pressing `Shift+Tab` inside Claude CLI cycles Auto Mode off. When off, Claude Code relies directly on your `permissions.allow` wildcard configuration and runs commands without dispatching any classifier requests.
 
 **Test Claude CLI:**
 ```bash
