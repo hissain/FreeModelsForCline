@@ -718,7 +718,7 @@ server.listen(PORT, () => {
 
   console.log(`   - TokenHarbor: ${TOKENHARBOR_API_KEY ? 'CONNECTED (DeepSeek V4.1 Flash Free ready)' : 'DISABLED'}`);
 
-  console.log(`   - OpenRouter:  ${OPENROUTER_API_KEY ? 'CONNECTED (5 models chunked in batches of 3)' : 'DISABLED'}`);
+  console.log(`   - OpenRouter:  ${OPENROUTER_API_KEY ? `CONNECTED (${OPENROUTER_FALLBACK_MODELS.length} models chunked in batches of 3)` : 'DISABLED'}`);
 
   console.log(`   - Master Virtual Model: 'free-router' (Auto-Cascade)`);
 
