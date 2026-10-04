@@ -20,30 +20,33 @@ When using free models on OpenRouter with autonomous coding agents (Cline, Claud
 
 ---
 
-## Configured Priority Sequences (Tiered by Context & Capability)
+## Configured Priority Sequences (Tiered by SWE Benchmarks, Agent Reliability & Context)
 
-The proxy strictly prioritizes **1,000,000 (1M) token context** and heavyweight parameter models first, followed by specialized coding models and dynamic safety fallbacks:
+The proxy strictly prioritizes **dedicated SWE agent specialists** (Terminal-Bench & DeepSWE leaders) first, followed by **1M-context frontier models** and fast fallback cascades:
 
 ### Anthropic Messages API (`/v1/messages` for Claude CLI)
-- **Tier 1: 1M (1,000,000) Context Tier**
-  1. `nvidia/nemotron-3-ultra-550b-a55b:free` *(Priority 1: **1,000,000 context**, massive 550B parameter coding foundation model)*
-  2. `nvidia/nemotron-3.5-lightning:free` *(Priority 2: **1,000,000 context**, fast low-latency reasoning)*
-- **Tier 2: 512k (512,000) Context Tier**
-  3. `dots-studio/dots-3-note-preview:free` *(Priority 3: **512,000 context**, verified native tool calling)*
-- **Tier 3: 262k (262,144) Context Tier (Heavyweight & Code Specialists)**
-  4. `nvidia/nemotron-3-super-120b-a12b:free` *(Priority 4: **120B parameter** heavy coding model)*
-  5. `poolside/laguna-s-2.1:free` *(Priority 5: Poolside dedicated software-engineering model)*
-  6. `qwen/qwen3.8-27b:free` *(Priority 6: Elite reasoning & instruction following)*
-  7. `inclusionai/ling-3.0-flash-sante:free` *(Priority 7: High-throughput fallback)*
-- **Tier 4: Dynamic Safety Net**
-  8. `openrouter/free` *(Priority 8: Dynamic auto-router fallback)*
+- **Tier 1: Dedicated SWE Agent Specialists**
+  1. `poolside/laguna-s-2.1:free` *(Priority 1: **SWE Leader**, 70.2% Terminal-Bench 2.1, 40.4% DeepSWE, 118B MoE, 262k context)*
+  2. `cohere/north-mini-code:free` *(Priority 2: Cohere agentic code specialist, 30B MoE, 256k context)*
+  3. `nvidia/nemotron-3-ultra-550b-a55b:free` *(Priority 3: **1,000,000 context**, 550B frontier MoE foundation model)*
+- **Tier 2: 1M & 512k Context MoE Responders**
+  4. `nvidia/nemotron-3.5-lightning:free` *(Priority 4: **1,000,000 context**, high-speed agentic MoE)*
+  5. `dots-studio/dots-3-note-preview:free` *(Priority 5: **512,000 context**, 280B MoE)*
+  6. `poolside/laguna-xs-2.1:free` *(Priority 6: Lightweight 33B MoE coder, 262k context)*
+- **Tier 3: Lightweight & Syntax Specialists (262k Context)**
+  7. `qwen/qwen3.8-27b:free` *(Priority 7: Dense syntax, reasoning & tool calling)*
+  8. `nvidia/nemotron-3-super-120b-a12b:free` *(Priority 8: **120B parameter** MoE coder)*
+  9. `inclusionai/ling-3.0-flash-sante:free` *(Priority 9: High-throughput fallback)*
+- **Tier 4: Dynamic Auto Safety Net**
+  10. `openrouter/free` *(Priority 10: Dynamic auto-router fallback)*
 
 ### OpenAI Chat Completions API (`/v1/chat/completions` for Cline)
 - **TokenHarbor Free Models (Optional)**: `deepseek-v4.1-flash:free` (1M context), `deepseek-v4-flash:free`, `mimo-v2.5:free`
-- **OpenRouter Free Batches (1M -> 512k -> 262k)**:
-  - **Batch 1 (1M & 512k Context Tier)**: `nvidia/nemotron-3-ultra-550b-a55b:free`, `nvidia/nemotron-3.5-lightning:free`, `dots-studio/dots-3-note-preview:free`
-  - **Batch 2 (Heavyweight & Specialists)**: `nvidia/nemotron-3-super-120b-a12b:free`, `poolside/laguna-s-2.1:free`, `qwen/qwen3.8-27b:free`
-  - **Batch 3 (General Fallbacks)**: `inclusionai/ling-3.0-flash-sante:free`, `google/gemma-4-31b-it:free`, `google/gemma-4-26b-a4b-it:free`
+- **OpenRouter Free Batches (SWE Leaders -> 1M Responders -> Lightweight Fallbacks)**:
+  - **Batch 1 (SWE Leaders & 1M Frontier)**: `poolside/laguna-s-2.1:free`, `cohere/north-mini-code:free`, `nvidia/nemotron-3-ultra-550b-a55b:free`
+  - **Batch 2 (1M & 512k MoE Tier)**: `nvidia/nemotron-3.5-lightning:free`, `dots-studio/dots-3-note-preview:free`, `poolside/laguna-xs-2.1:free`
+  - **Batch 3 (Lightweight & Syntax Tier)**: `qwen/qwen3.8-27b:free`, `nvidia/nemotron-3-super-120b-a12b:free`, `inclusionai/ling-3.0-flash-sante:free`
+  - **Batch 4 (Safety Net)**: `google/gemma-4-31b-it:free`, `google/gemma-4-26b-a4b-it:free`, `openrouter/free`
 
 ---
 

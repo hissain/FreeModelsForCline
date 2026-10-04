@@ -37,69 +37,70 @@ const TOKENHARBOR_FREE_MODELS = [
 
 // OpenRouter free models sequence
 
-// OpenRouter free models sequence (OpenAI format for Cline) - Prioritized by context & capability
+// OpenRouter free models sequence (OpenAI format for Cline) - Prioritized by SWE benchmarks, agent capabilities & context
 const OPENROUTER_FALLBACK_MODELS = [
-  // Tier 1: 1,000,000 (1M) Context
-  'nvidia/nemotron-3-ultra-550b-a55b:free', // 1M context, 550B params (Primary)
-  'nvidia/nemotron-3.5-lightning:free',    // 1M context, fast reasoning
+  // Tier 1: Dedicated SWE Agent Specialists (Benchmark leaders: 70.2% Terminal-Bench, 40.4% DeepSWE)
+  'poolside/laguna-s-2.1:free',            // 262k context, 118B MoE (8B active) - Primary SWE model
+  'cohere/north-mini-code:free',           // 256k context, 30B MoE (3B active) - Cohere agentic coder
+  'nvidia/nemotron-3-ultra-550b-a55b:free',// 1M context, 550B MoE (55B active) - Frontier reasoning & 1M context
 
-  // Tier 2: 512,000 (512k) Context
-  'dots-studio/dots-3-note-preview:free',  // 512k context
+  // Tier 2: 1M & 512k Context MoE Responders
+  'nvidia/nemotron-3.5-lightning:free',    // 1M context, 30B MoE (3B active) - Fast reasoning & agent loops
+  'dots-studio/dots-3-note-preview:free',  // 512k context, 280B MoE (16B active) - Large context coder
+  'poolside/laguna-xs-2.1:free',           // 262k context, 33B MoE (3B active) - Fast agentic coding
 
-  // Tier 3: 262,144 (262k) Context - Heavyweight & Coding Specialists
-  'nvidia/nemotron-3-super-120b-a12b:free', // 120B parameter heavy coder
-  'poolside/laguna-s-2.1:free',            // Poolside specialized coding model
-  'qwen/qwen3.8-27b:free',                  // Qwen reasoning & syntax
-  'inclusionai/ling-3.0-flash-sante:free',  // High-throughput fallback
-  'google/gemma-4-31b-it:free',            // Google instruction-tuned
-  'google/gemma-4-26b-a4b-it:free'         // Google instruction-tuned
+  // Tier 3: Lightweight & Syntax Specialists (262k Context)
+  'qwen/qwen3.8-27b:free',                 // 262k context, 27B dense - Flexible thinking & syntax
+  'nvidia/nemotron-3-super-120b-a12b:free',// 262k context, 120B MoE (12B active) - Heavyweight coder
+  'inclusionai/ling-3.0-flash-sante:free', // 262k context, high-throughput fallback
+
+  // Tier 4: General Fallbacks & Dynamic Safety Net
+  'google/gemma-4-31b-it:free',            // 262k context, instruction-tuned
+  'google/gemma-4-26b-a4b-it:free',        // 262k context, instruction-tuned
+  'openrouter/free'                        // Dynamic auto-router fallback
 ];
 
-// OpenRouter free models sequence (Anthropic format for Claude CLI) - Prioritized by context & capability
+// OpenRouter free models sequence (Anthropic format for Claude CLI) - Prioritized by SWE & agent capabilities
 const ANTHROPIC_FALLBACK_MODELS = [
-  // Tier 1: 1,000,000 (1M) Context
-  'nvidia/nemotron-3-ultra-550b-a55b:free', // 1M context, 550B params (Primary)
+  // Tier 1: Dedicated SWE Agent Specialists
+  'poolside/laguna-s-2.1:free',            // 262k context, 118B MoE - Primary SWE agent
+  'cohere/north-mini-code:free',           // 256k context, 30B MoE - Agentic coding specialist
+  'nvidia/nemotron-3-ultra-550b-a55b:free',// 1M context, 550B MoE - Frontier reasoning foundation
+
+  // Tier 2: 1M & 512k Context High-Throughput Fallbacks
   'nvidia/nemotron-3.5-lightning:free',    // 1M context, fast reasoning
+  'dots-studio/dots-3-note-preview:free',  // 512k context, 280B MoE
+  'poolside/laguna-xs-2.1:free',           // 262k context, 33B MoE lightweight coder
 
-  // Tier 2: 512,000 (512k) Context
-  'dots-studio/dots-3-note-preview:free',  // 512k context
+  // Tier 3: Lightweight & Syntax Specialists (262k Context)
+  'qwen/qwen3.8-27b:free',                 // 262k context, reasoning & syntax
+  'nvidia/nemotron-3-super-120b-a12b:free',// 262k context, 120B MoE coder
+  'inclusionai/ling-3.0-flash-sante:free', // 262k context, high-throughput fallback
 
-  // Tier 3: 262,144 (262k) Context - Heavyweight & Coding Specialists
-  'nvidia/nemotron-3-super-120b-a12b:free', // 120B parameter heavy coder
-  'poolside/laguna-s-2.1:free',            // Poolside specialized coding model
-  'qwen/qwen3.8-27b:free',                  // Qwen reasoning & syntax
-  'inclusionai/ling-3.0-flash-sante:free',  // High-throughput fallback
-
-  // Tier 4: Auto Safety Net
+  // Tier 4: Dynamic Auto Safety Net
   'openrouter/free'                        // Dynamic auto-router fallback
 ];
 
 // Split array into chunks of up to 3 items (OpenRouter maximum)
-
 function chunkArray(array, size = 3) {
-
   const chunks = [];
-
   for (let i = 0; i < array.length; i += size) {
-
     chunks.push(array.slice(i, i + size));
-
   }
-
   return chunks;
-
 }
 
 // Catalog of models exposed to clients
-
 const MODEL_CATALOG = [
-  { id: 'free-router', name: 'Auto Free (1M Context First -> TokenHarbor -> OpenRouter)', owned_by: 'unified-proxy', provider: 'Unified' },
-  { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', name: 'OpenRouter: Nemotron 3 Ultra 550B Free (1M Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
-  { id: 'nvidia/nemotron-3.5-lightning:free', name: 'OpenRouter: Nemotron 3.5 Lightning Free (1M Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
-  { id: 'dots-studio/dots-3-note-preview:free', name: 'OpenRouter: Dots3-Note Preview Free (512k Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'free-router', name: 'Auto Free Router (SWE Priority: Laguna S 2.1 -> North Mini Code -> Nemotron 3)', owned_by: 'unified-proxy', provider: 'Unified' },
+  { id: 'poolside/laguna-s-2.1:free', name: 'OpenRouter: Poolside Laguna S 2.1 Free (262k Context, SWE Leader)', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'cohere/north-mini-code:free', name: 'OpenRouter: Cohere North Mini Code Free (256k Context, Agentic SWE)', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', name: 'OpenRouter: Nemotron 3 Ultra 550B Free (1M Context, Frontier MoE)', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'nvidia/nemotron-3.5-lightning:free', name: 'OpenRouter: Nemotron 3.5 Lightning Free (1M Context, High-Throughput)', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'dots-studio/dots-3-note-preview:free', name: 'OpenRouter: Dots3-Note Preview Free (512k Context, 280B MoE)', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'poolside/laguna-xs-2.1:free', name: 'OpenRouter: Poolside Laguna XS 2.1 Free (262k Context, Lightweight Coder)', owned_by: 'openrouter', provider: 'OpenRouter' },
+  { id: 'qwen/qwen3.8-27b:free', name: 'OpenRouter: Qwen 3.8 27B Free (262k Context, Reasoning & Syntax)', owned_by: 'openrouter', provider: 'OpenRouter' },
   { id: 'nvidia/nemotron-3-super-120b-a12b:free', name: 'OpenRouter: Nemotron 3 Super 120B Free (262k Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
-  { id: 'poolside/laguna-s-2.1:free', name: 'OpenRouter: Poolside Laguna S 2.1 Free (262k Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
-  { id: 'qwen/qwen3.8-27b:free', name: 'OpenRouter: Qwen 3.8 27B Free (262k Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
   { id: 'inclusionai/ling-3.0-flash-sante:free', name: 'OpenRouter: Ling 3.0 Flash Sante Free (262k Context)', owned_by: 'openrouter', provider: 'OpenRouter' },
   { id: 'openrouter/free', name: 'OpenRouter: Auto Free Router', owned_by: 'openrouter', provider: 'OpenRouter' },
   { id: 'deepseek-v4.1-flash:free', name: 'TokenHarbor: DeepSeek V4.1 Flash Free (1M Context)', owned_by: 'tokenharbor', provider: 'TokenHarbor' },
@@ -459,16 +460,7 @@ const server = http.createServer(async (req, res) => {
             if (thRes.ok) {
 
               console.log(`[Proxy] TokenHarbor (${requestedModel}) succeeded (${thRes.status}). Streaming response.`);
-
-              res.writeHead(thRes.status, Object.fromEntries(thRes.headers.entries()));
-
-              return thRes.body.pipeTo(new WritableStream({
-
-                write(chunk) { res.write(chunk); },
-
-                close() { res.end(); }
-
-              }));
+              return pipeResponse(res, thRes);
 
             }
 
@@ -486,15 +478,7 @@ const server = http.createServer(async (req, res) => {
 
               if (fbRes.ok) {
 
-                res.writeHead(fbRes.status, Object.fromEntries(fbRes.headers.entries()));
-
-                return fbRes.body.pipeTo(new WritableStream({
-
-                  write(chunk) { res.write(chunk); },
-
-                  close() { res.end(); }
-
-                }));
+                return pipeResponse(res, fbRes);
 
               }
 
@@ -539,16 +523,7 @@ const server = http.createServer(async (req, res) => {
             if (orRes.ok) {
 
               console.log(`[Proxy] OpenRouter (${requestedModel}) succeeded (${orRes.status}). Streaming response.`);
-
-              res.writeHead(orRes.status, Object.fromEntries(orRes.headers.entries()));
-
-              return orRes.body.pipeTo(new WritableStream({
-
-                write(chunk) { res.write(chunk); },
-
-                close() { res.end(); }
-
-              }));
+              return pipeResponse(res, orRes);
 
             }
 
@@ -601,16 +576,7 @@ const server = http.createServer(async (req, res) => {
               if (thRes.ok) {
 
                 console.log(`[Proxy] [Cascade 1/2] TokenHarbor (${thModel}) SUCCEEDED (200).`);
-
-                res.writeHead(thRes.status, Object.fromEntries(thRes.headers.entries()));
-
-                return thRes.body.pipeTo(new WritableStream({
-
-                  write(chunk) { res.write(chunk); },
-
-                  close() { res.end(); }
-
-                }));
+                return pipeResponse(res, thRes);
 
               }
 
@@ -651,16 +617,7 @@ const server = http.createServer(async (req, res) => {
               if (orRes.ok) {
 
                 console.log(`[Proxy] [Cascade 2/2] OpenRouter Batch ${i + 1} SUCCEEDED (200).`);
-
-                res.writeHead(orRes.status, Object.fromEntries(orRes.headers.entries()));
-
-                return orRes.body.pipeTo(new WritableStream({
-
-                  write(chunk) { res.write(chunk); },
-
-                  close() { res.end(); }
-
-                }));
+                return pipeResponse(res, orRes);
 
               }
 
