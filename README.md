@@ -150,5 +150,5 @@ Managed via cross-platform Node CLI (`scripts/proxy.mjs`):
 ---
 
 <p align="center">
-  Made by Hissain with &lt;3 for Developers
+  Made by Hissain with ❤️ for Developers
 </p>
