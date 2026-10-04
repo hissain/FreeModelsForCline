@@ -50,19 +50,13 @@ The proxy strictly prioritizes **1,000,000 (1M) token context** and heavyweight 
 ## Quick Start
 
 ### 1. Prerequisites
-- **Node.js** v18+ (uses built-in `fetch`, `node:http`, and `WritableStream`, no `npm install` needed).
+- **Node.js** v18+ (uses built-in `fetch`, `node:http`, and `WritableStream`; no `npm install` needed). Works the same on **Windows, macOS and Linux**.
 
 ### 2. Setup Configuration
-Copy `.env.example` to `.env` and add your OpenRouter API key:
+Create your `.env` from the template (same command on every OS):
 
 ```bash
-# In Git Bash / Linux / macOS:
-cp .env.example .env
-cp router.template.mjs router.mjs
-
-# In PowerShell:
-Copy-Item .env.example .env
-Copy-Item router.template.mjs router.mjs
+npm run init        # or: node scripts/proxy.mjs init
 ```
 
 Edit `.env` and configure your settings:
@@ -75,11 +69,11 @@ SAFETY_CLASSIFIER_MODEL=auto-approve
 ```
 
 > [!NOTE]
-> Both `.env`, `router.mjs`, and `*.log` are ignored by `.gitignore` so your private credentials and logs are never committed.
+> `.env` and `*.log` are ignored by `.gitignore` so your private credentials and logs are never committed. API keys live only in `.env`; `router.mjs` itself contains no secrets.
 
 ### 3. Run the Proxy
-```powershell
-node router.mjs
+```bash
+npm start           # or: node router.mjs
 ```
 
 The server will start listening at:
@@ -88,7 +82,6 @@ http://localhost:8081/v1
 ```
 
 ---
-
 ## Client Configurations
 
 ### 1. Configuring Claude CLI (Claude Code)
@@ -185,14 +178,30 @@ curl -X POST http://localhost:8081/v1/messages \
 
 ---
 
-## Windows Background Management (Survives Reboots)
+## Background Management (Windows, macOS, Linux)
 
-To run the proxy permanently in the background without keeping a terminal open:
+One cross-platform Node CLI (`scripts/proxy.mjs`) manages the proxy; no PowerShell, cmd or bash scripts are required. It runs `router.mjs` under a small supervisor that restarts it 3 seconds after any crash, and writes logs to `proxy.log` (ignored by git).
 
-- **Start in Background**: Double-click `start-proxy.cmd`
-- **Check Status & Health**: Double-click `status-proxy.cmd`
-- **Stop Proxy**: Double-click `stop-proxy.cmd`
-- **Auto-Start on Windows Login**: Double-click `install-autostart.cmd` (registers in Windows Startup)
-- **Disable Auto-Start**: Double-click `uninstall-autostart.cmd`
+| Command | What it does |
+| :--- | :--- |
+| `npm run proxy:start` | Start in the background (hidden, auto-restart) |
+| `npm run proxy:stop` | Stop the proxy and its supervisor |
+| `npm run proxy:restart` | Stop, then start |
+| `npm run proxy:status` | Show running state, health check, and the last 15 log lines |
+| `npm run proxy:run` | Run the supervisor in the foreground (useful for debugging) |
+| `npm run autostart:install` | Start automatically at login/boot |
+| `npm run autostart:uninstall` | Remove the autostart entry |
 
-Logs are automatically written to `proxy.log` (ignored by git).
+Without npm, call the CLI directly: `node scripts/proxy.mjs <start|stop|restart|status|run|install-autostart|uninstall-autostart>`.
+
+The port is read from `.env` (`PORT`), so the CLI always matches the server.
+
+### How autostart is registered per OS
+
+| OS | Mechanism |
+| :--- | :--- |
+| Windows | `OpenRouterProxy.vbs` in your Startup folder (runs `proxy.mjs start` with no console window) |
+| macOS | LaunchAgent `~/Library/LaunchAgents/com.openrouter.proxy.plist` (`RunAtLoad` + `KeepAlive`) |
+| Linux | systemd user service `~/.config/systemd/user/openrouter-proxy.service` (run `loginctl enable-linger $USER` to start at boot); falls back to `~/.config/autostart/openrouter-proxy.desktop` when systemd is unavailable |
+
+On macOS and Linux the OS service manager supervises the process itself, so `proxy:start`/`proxy:stop` and the service are two alternatives; use `autostart:uninstall` before managing it manually.

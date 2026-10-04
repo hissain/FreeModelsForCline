@@ -1,3 +1,0 @@
-@echo off
-powershell -NoProfile -Command "$conn = Get-NetTCPConnection -LocalPort 8081 -ErrorAction SilentlyContinue; if ($conn) { Write-Host ('[OK] OpenRouter Proxy is RUNNING on port 8081 (PID: ' + $conn.OwningProcess + ')') -ForegroundColor Green; try { $res = Invoke-RestMethod -Uri 'http://localhost:8081/v1/models' -TimeoutSec 2; Write-Host ('[OK] Health Check: ' + ($res | ConvertTo-Json -Compress)) -ForegroundColor Green } catch { Write-Host ('[!] Health Warning: ' + $_.Exception.Message) -ForegroundColor Yellow } } else { Write-Host '[X] OpenRouter Proxy is NOT running on port 8081.' -ForegroundColor Red }; if (Test-Path '%~dp0proxy.log') { Write-Host ''; Write-Host '--- Last 15 log lines ---' -ForegroundColor Cyan; Get-Content '%~dp0proxy.log' -Tail 15 }"
-pause

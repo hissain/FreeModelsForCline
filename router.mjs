@@ -1,20 +1,11 @@
 import http from 'node:http';
-
-import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { loadEnv } from './lib/env.mjs';
 
-// Automatically load .env next to this script or in CWD
+// Automatically load .env next to this script, falling back to the current working directory
 const __scriptDir = dirname(fileURLToPath(import.meta.url));
-const __envInScriptDir = join(__scriptDir, '.env');
-if (typeof process.loadEnvFile === 'function') {
-  if (existsSync(__envInScriptDir)) {
-    process.loadEnvFile(__envInScriptDir);
-  } else if (existsSync('.env')) {
-    process.loadEnvFile('.env');
-  }
-}
-
+if (!loadEnv(join(__scriptDir, '.env'))) loadEnv(join(process.cwd(), '.env'));
 const PORT = process.env.PORT || 8081;
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
@@ -723,7 +714,7 @@ server.listen(PORT, () => {
 
   console.log(`================================================================`);
 
-  console.log(`?? Unified Free AI Proxy active at http://localhost:${PORT}/v1`);
+  console.log(`Unified Free AI Proxy active at http://localhost:${PORT}/v1`);
 
   console.log(`   - TokenHarbor: ${TOKENHARBOR_API_KEY ? 'CONNECTED (DeepSeek V4.1 Flash Free ready)' : 'DISABLED'}`);
 
