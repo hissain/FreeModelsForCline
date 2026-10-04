@@ -50,7 +50,32 @@ The proxy strictly prioritizes **dedicated SWE agent specialists** (Terminal-Ben
 
 ---
 
-## Quick Start
+## 🤖 1-Prompt Autonomous Agent Setup
+
+If you use an AI coding agent (**Claude Code**, **Cline**, **Cursor**, **Antigravity**, **Roo Code**, or similar), copy and paste this single prompt directly into your agent to clone, install, configure, and launch the proxy automatically:
+
+> **Copy & Paste Prompt for your Coding Agent:**
+> 
+> ```text
+> Clone https://github.com/hissain/FreeModelsForCline.git, set up the .env file from .env.example, start the background proxy service, and configure my coding tool to use it.
+> 
+> Critical Decisions — Before proceeding, ask me:
+> 1. What is my OpenRouter API Key (sk-or-v1-...)? (Required for OpenRouter free models; prompt me to input it so it can be saved to .env)
+> 2. Which client should be configured: Claude Code, Cline, or both?
+> 
+> Once I provide those answers:
+> - Save the API key to .env (and ensure PORT=8081).
+> - Start the background proxy daemon using `node scripts/proxy.mjs start`.
+> - Verify the service is healthy at http://localhost:8081/health.
+> - Configure the requested client(s):
+>   * Claude Code: Set ANTHROPIC_BASE_URL="http://localhost:8081" and ANTHROPIC_MODEL="free-router" in ~/.claude/settings.json or .claude/settings.local.json.
+>   * Cline: Set Base URL to "http://localhost:8081/v1", Model ID to "free-router", and API Key to "dummy".
+> - Run a test prompt through the client to confirm free-tier routing is functional.
+> ```
+
+---
+
+## Manual Quick Start
 
 ### 1. Prerequisites
 - **Node.js** v18+ (uses built-in `fetch`, `node:http`, and `WritableStream`; no `npm install` needed). Works the same on **Windows, macOS and Linux**.
