@@ -140,3 +140,15 @@ Managed via cross-platform Node CLI (`scripts/proxy.mjs`):
 - **Windows**: VBS script in `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`
 - **macOS**: LaunchAgent plist in `~/Library/LaunchAgents`
 - **Linux**: systemd user service in `~/.config/systemd/user`
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 Md. Sazzad Hissain Khan
+
+---
+
+<p align="center">
+  Made by Hissain with &lt;3 for Developers
+</p>

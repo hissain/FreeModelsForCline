@@ -2,6 +2,7 @@
   "name": "openrouter-free-proxy",
   "version": "1.0.0",
   "description": "Zero-dependency proxy that routes OpenAI-compatible and Anthropic Messages requests to free-tier models with automatic failover.",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "main": "router.mjs",
